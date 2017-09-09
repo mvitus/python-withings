@@ -41,7 +41,9 @@ from requests_oauthlib import OAuth1, OAuth1Session
 import json
 import datetime
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import numpy as np
+
 
 class WithingsCredentials(object):
     def __init__(self, access_token=None, access_token_secret=None,
@@ -165,7 +167,7 @@ class WithingsApi(object):
                 if (entry['steps']==0):
                     continue
                 total = total + 1
-                dates.append(entry['date'])
+                dates.append(datetime.datetime.strptime(entry['date'], "%Y-%m-%d"))
                 steps.append(entry['steps'])
                 if entry['steps'] >= 10000:
                     total_10k = total_10k + 1
@@ -175,13 +177,23 @@ class WithingsApi(object):
             
             kwargs['offset'] = r['offset']
 
+        dates, steps = (list(x) for x in zip(*sorted(zip(dates, steps), key=lambda pair: pair[0])))
+        cum_steps = np.cumsum(steps)
+        print dates
         print str(total_10k) + ' out of ' + str(total)
         print str(np.cumsum(steps)[-1]) + ' of ' + str(total * 10000)
         print 'Deficit: ' + str(total * 10000 - np.cumsum(steps)[-1])
         print 'Days: ' + str((total * 10000 - np.cumsum(steps)[-1])/10000)
-        # fig, ax = plt.plot()
-        # plt.show()
-
+    
+        plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%m/%d/%Y"))
+        plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
+        plt.plot([dates[0], dates[-1]], [0, 10000 * (dates[-1] - dates[0]).days], 'r--')
+        plt.plot(dates, cum_steps, '-')
+        plt.gcf().autofmt_xdate()
+        #plt.xlabel("Date")
+        #plt.ylabel("Cumulative Steps")
+        plt.title("Cumulative Steps vs Date")
+        plt.show()
         # return WithingsMeasures(r)
 
     def subscribe(self, callback_url, comment, appli=1):
