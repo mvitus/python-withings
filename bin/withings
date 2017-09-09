@@ -92,6 +92,11 @@ if command == 'last':
     sys.exit(0)
 
 
+if command == 'activity':
+    client.get_activity(startdateymd="2017-01-01",enddateymd="2018-01-01")
+    sys.exit(0)
+
+
 if command == 'subscribe':
     client.subscribe(args[0], args[1])
     print("Subscribed %s" % args[0])

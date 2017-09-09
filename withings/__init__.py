@@ -40,7 +40,8 @@ import requests
 from requests_oauthlib import OAuth1, OAuth1Session
 import json
 import datetime
-
+import matplotlib.pyplot as plt
+import numpy as np
 
 class WithingsCredentials(object):
     def __init__(self, access_token=None, access_token_secret=None,
@@ -78,7 +79,7 @@ class WithingsError(Exception):
 
 
 class WithingsAuth(object):
-    URL = 'https://oauth.withings.com/account'
+    URL = 'https://developer.health.nokia.com/account' #https://oauth.withings.com/account'
 
     def __init__(self, consumer_key, consumer_secret, callback_uri=None):
         self.consumer_key = consumer_key
@@ -113,7 +114,9 @@ class WithingsAuth(object):
 
 
 class WithingsApi(object):
-    URL = 'http://wbsapi.withings.net'
+    # URL = 'http://wbsapi.withings.net'
+    URL = 'http://wbsapi.withings.net/v2'
+    # URL = 'https://api.health.nokia.com/v2/'
 
     def __init__(self, credentials):
         self.credentials = credentials
@@ -141,7 +144,45 @@ class WithingsApi(object):
 
     def get_measures(self, **kwargs):
         r = self.request('measure', 'getmeas', kwargs)
+        print r
         return WithingsMeasures(r)
+
+    def get_activity(self, **kwargs):
+        total = 0
+        total_10k = 0
+        dates = []
+        steps = []
+
+        kwargs['offset'] = 0
+        while True:
+            r = self.request('measure', 'getactivity', kwargs)
+            #print r
+            #print type(r)
+            #print '\n\n\n'
+        
+            for entry in r['activities']:
+                # print entry['date'] + ": " + str(entry['steps'])
+                if (entry['steps']==0):
+                    continue
+                total = total + 1
+                dates.append(entry['date'])
+                steps.append(entry['steps'])
+                if entry['steps'] >= 10000:
+                    total_10k = total_10k + 1
+
+            if not r['more']:
+                break
+            
+            kwargs['offset'] = r['offset']
+
+        print str(total_10k) + ' out of ' + str(total)
+        print str(np.cumsum(steps)[-1]) + ' of ' + str(total * 10000)
+        print 'Deficit: ' + str(total * 10000 - np.cumsum(steps)[-1])
+        print 'Days: ' + str((total * 10000 - np.cumsum(steps)[-1])/10000)
+        # fig, ax = plt.plot()
+        # plt.show()
+
+        # return WithingsMeasures(r)
 
     def subscribe(self, callback_url, comment, appli=1):
         params = {'callbackurl': callback_url,
@@ -170,7 +211,6 @@ class WithingsMeasures(list):
     def __init__(self, data):
         super(WithingsMeasures, self).__init__([WithingsMeasureGroup(g) for g in data['measuregrps']])
         self.updatetime = datetime.datetime.fromtimestamp(data['updatetime'])
-
 
 class WithingsMeasureGroup(object):
     MEASURE_TYPES = (('weight', 1), ('height', 4), ('fat_free_mass', 5),
